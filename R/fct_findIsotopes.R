@@ -11,14 +11,14 @@ calcIsotopeMatrix <- function(maxiso=4){
   isotopeMatrix <- matrix(NA, 8, 4);
   colnames(isotopeMatrix) <- c("mzmin", "mzmax", "intmin", "intmax")
   
-  isotopeMatrix[1, ] <- c(1.000, 1.0040, 1.0, 150)
-  isotopeMatrix[2, ] <- c(0.997, 1.0040, 0.01, 200)
-  isotopeMatrix[3, ] <- c(1.000, 1.0040, 0.001, 200)
-  isotopeMatrix[4, ] <- c(1.000, 1.0040, 0.0001, 200)
-  isotopeMatrix[5, ] <- c(1.000, 1.0040, 0.00001, 200)
-  isotopeMatrix[6, ] <- c(1.000, 1.0040, 0.000001, 200)
-  isotopeMatrix[7, ] <- c(1.000, 1.0040, 0.0000001, 200)
-  isotopeMatrix[8, ] <- c(1.000, 1.0040, 0.00000001, 200)  
+  isotopeMatrix[1, ] <- c(1.003, 1.0037, 1.0, 150)
+  isotopeMatrix[2, ] <- c(1.0023, 1.0037, 0.01, 200)
+  isotopeMatrix[3, ] <- c(1.003, 1.0037, 0.001, 200)
+  isotopeMatrix[4, ] <- c(1.003, 1.0037, 0.0001, 200)
+  isotopeMatrix[5, ] <- c(1.003, 1.0037, 0.00001, 200)
+  isotopeMatrix[6, ] <- c(1.003, 1.0037, 0.000001, 200)
+  isotopeMatrix[7, ] <- c(1.003, 1.0037, 0.0000001, 200)
+  isotopeMatrix[8, ] <- c(1.003, 1.0037, 0.00000001, 200)
   
   return(isotopeMatrix[1:maxiso, , drop=FALSE])
 
@@ -137,6 +137,14 @@ findIsotopesPspec <- function(isomatrix, mz, ipeak, int, params){
         candidate.matrix <- matrix(0, nrow=length(isohits), ncol=max(isolength)*2);
         
         for(iso in 1:length(isohits)){
+          i <- 2
+          while (i <= length(isohits[[iso]])){ # if there are gaps, only M+1 and M+3 annotated, skip everything after M+2
+            if(hits[isohits[[iso]][i]]!=(hits[isohits[[iso]][i-1]]+2)){
+              isohits[[iso]] <- isohits[[iso]][1:i-1]
+              i <- length(isohits[[iso]])+1 # stop
+            }
+            i <- i +1
+          }
             for(candidate in 1:length(isohits[[iso]])){
                 for(sample.index in c(1:ncol(int))){
                     charge <- as.numeric(row.names(hits)[iso])
@@ -147,6 +155,11 @@ findIsotopesPspec <- function(isomatrix, mz, ipeak, int, params){
                         int.c13 <- int[isohits[[iso]][candidate]+j, sample.index];
                         int.available <- all(!is.na(c(int.c12, int.c13)))
                         if (int.available){
+                            c13.c12ratio <- int.c13/int.c12
+                            estNumC <- 1
+                            while ((choose(estNumC,1)*0.989^(estNumC-1)*0.011)/(choose(estNumC,0)*0.989^estNumC) < c13.c12ratio){
+                              estNumC <- estNumC + 1
+                            }
                             theo.mass <- spectra[j, 1] * charge; #theoretical mass
                             numC      <- abs(round(theo.mass / 12)); #max. number of C in molecule
                             inten.max <- int.c12 * numC * 0.011; #highest possible intensity
@@ -165,9 +178,15 @@ findIsotopesPspec <- function(isomatrix, mz, ipeak, int, params){
                         int.cx <- int[isohits[[iso]][candidate]+j, sample.index];
                         int.available <- all(!is.na(c(int.c12, int.cx)))
                         if (int.available) {
-                            intrange <- c((int.c12 * params$IM[isotopePeak,"intmin"]/100),
-                            (int.c12 * params$IM[isotopePeak,"intmax"]/100))
+                            theo.mass <- spectra[j, 1] * charge; #theoretical mass
+                            numC      <- abs(round(theo.mass / 12)); #max. number of C in molecule
+                            
                             ## filter Cx isotopic peaks muss be smaller than c12
+                            if(isotopePeak > 1){ # M+2, M+3, ...
+                              int.max <- int.c12 * ((choose(estNumC,isotopePeak)*0.989^(estNumC-isotopePeak)*0.011^isotopePeak)/(choose(estNumC,0)*0.989^estNumC) + intdev)
+                              int.min <- int.c12 * (choose(isotopePeak, isotopePeak)*0.989^(isotopePeak-isotopePeak)*0.011^isotopePeak)/(choose(estNumC, 0)*0.989^(estNumC))
+                              intrange <- c(int.min, int.max)
+                            }
                             if(int.cx < intrange[2] && int.cx > intrange[1]){
                                 candidate.matrix[iso,candidate * 2 - 1] <- candidate.matrix[iso,candidate * 2 - 1] + 1
                                 candidate.matrix[iso,candidate * 2 ] <- candidate.matrix[iso,candidate * 2] + 1                        

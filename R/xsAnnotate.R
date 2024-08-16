@@ -718,6 +718,7 @@ setMethod("findIsotopes", "xsAnnotate",
 
   #Combine isotope cluster, if they overlap
   index2remove <- c();
+  cnt <- 1
 
   if(length(idx.duplicated <- which(isomatrix[, 1] %in% isomatrix[, 2]))>0){
     for(i in 1:length(idx.duplicated)){
@@ -727,8 +728,16 @@ setMethod("findIsotopes", "xsAnnotate",
         index2remove <- c(index2remove,idx.duplicated[i])
       }
       max.index <- which.max(isomatrix[index,4]);
+      if(exists('index_old')){
+        if(index==index_old){
+          cnt <- cnt+1
+        }else if(index!=index_old){
+          cnt <- 1
+        }
+      }
       isomatrix[idx.duplicated[i], 1] <- isomatrix[index[max.index], 1];
       isomatrix[idx.duplicated[i], 3] <- isomatrix[index[max.index], 3]+1;
+      index_old <- index
     }
   }
 
